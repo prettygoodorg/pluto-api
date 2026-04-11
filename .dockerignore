@@ -1,0 +1,12 @@
+.git
+.github
+.gradle
+.idea
+build/*
+!build/libs/
+!build/libs/*.jar
+gradle/
+pluto-api-secret/.git
+HELP.md
+*.iml
+out/
