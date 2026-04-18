@@ -19,17 +19,17 @@ spec:
         - name: dev-api
           image: ghcr.io/prettygoodorg/pluto-api:dev-latest
           ports:
-            - containerPort: 8000
+            - containerPort: 8080
           imagePullPolicy: Always
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: 8000
+              port: 8080
             initialDelaySeconds: 30
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: 8000
+              port: 8080
             initialDelaySeconds: 20
       imagePullSecrets:
         - name: ghcr-secret
