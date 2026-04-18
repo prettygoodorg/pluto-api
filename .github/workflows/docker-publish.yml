@@ -1,4 +1,4 @@
-name: Build and Publish Docker Image
+name: Build and Deploy
 
 on:
   push:
@@ -13,72 +13,55 @@ permissions:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     env:
       IMAGE_PLATFORMS: linux/arm64
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           token: ${{ secrets.REPO_PAT != '' && secrets.REPO_PAT || github.token }}
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
-
-      - name: Build application
-        run: ./gradlew build -x test
+      - run: chmod +x ./gradlew && ./gradlew build -x test
 
       - name: Resolve boot jar
         id: artifact
-        shell: bash
         run: |
-          set -euo pipefail
-
-          jar_file="$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)"
-
-          if [[ -z "${jar_file}" ]]; then
-            echo "Boot jar not found in build/libs" >&2
-            exit 1
-          fi
-
-          echo "jar_file=${jar_file}" >> "${GITHUB_OUTPUT}"
+          jar=$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -n 1)
+          [[ -z "$jar" ]] && { echo "Boot jar not found" >&2; exit 1; }
+          echo "jar_file=$jar" >> "$GITHUB_OUTPUT"
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          flavor: |
-            latest=false
+          flavor: latest=false
           tags: |
             type=sha,prefix=prod-,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=prod-latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=dev-,enable=${{ github.ref == 'refs/heads/develop' }}
             type=raw,value=dev-latest,enable=${{ github.ref == 'refs/heads/develop' }}
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.REPO_PAT }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
@@ -89,12 +72,13 @@ jobs:
             SPRING_PROFILE=${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to OKE
     needs: docker
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    timeout-minutes: 10
     env:
       ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
       OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
@@ -104,24 +88,23 @@ jobs:
       OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure Kubectl
-        uses: oracle-actions/configure-kubectl-oke@v1.5.0
-        id: test-configure-kubectl-oke-action
+      - uses: oracle-actions/configure-kubectl-oke@v1.5.0
         with:
           cluster: ${{ secrets.OKE_CLUSTER_OCID }}
 
-      - name: Deploy to Kubernetes
+      - name: Deploy
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:${{ needs.docker.outputs.image_tag }}
         run: |
+          set -euo pipefail
+          
+          MANIFEST=$(ls deploy/${{ env.ENV }}/ | grep -i deployment | head -n 1)
+          [[ -z "$MANIFEST" ]] && { echo "Deployment manifest not found" >&2; exit 1; }
+          
           kubectl apply -f deploy/${{ env.ENV }}/
+          kubectl set image -f deploy/${{ env.ENV }}/$MANIFEST api=$IMAGE
           
-          # Deployment name logic to handle differences between envs
-          if [ "${{ env.ENV }}" == "prod" ]; then
-            DEPLOYMENT_NAME="api-gw-deployment"
-          else
-            DEPLOYMENT_NAME="dev-api-gw-deployment"
-          fi
-          
-          kubectl rollout restart deployment/${DEPLOYMENT_NAME} -n pluto
+          DEPLOY_NAME=$(kubectl get -f deploy/${{ env.ENV }}/$MANIFEST -o jsonpath='{.metadata.name}')
+          kubectl rollout status deployment/$DEPLOY_NAME --timeout=180s
