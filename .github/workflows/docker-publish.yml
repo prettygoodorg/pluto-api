@@ -103,8 +103,6 @@ jobs:
           MANIFEST=$(ls deploy/${{ env.ENV }}/ | grep -i deployment | head -n 1)
           [[ -z "$MANIFEST" ]] && { echo "Deployment manifest not found" >&2; exit 1; }
         
-          kubectl apply -f deploy/${{ env.ENV }}/ -n pluto
-          kubectl set image -f deploy/${{ env.ENV }}/$MANIFEST api=$IMAGE -n pluto
-        
-          DEPLOY_NAME=$(kubectl get -f deploy/${{ env.ENV }}/$MANIFEST -n pluto -o jsonpath='{.metadata.name}')
-          kubectl rollout status deployment/$DEPLOY_NAME -n pluto --timeout=180s
+          kubectl apply -f deploy/${{ env.ENV }}/
+          kubectl set image -f deploy/${{ env.ENV }}/$MANIFEST api=$IMAGE
+          kubectl rollout status -f deploy/${{ env.ENV }}/$MANIFEST -n pluto --timeout=180s
