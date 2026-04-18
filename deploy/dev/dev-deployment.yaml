@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-api-deployment
+  namespace: pluto
+  labels:
+    app: dev-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-api
+  template:
+    metadata:
+      labels:
+        app: dev-api
+    spec:
+      containers:
+        - name: dev-api
+          image: ghcr.io/prettygoodorg/pluto-api:dev-latest
+          ports:
+            - containerPort: 8000
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8000
+            initialDelaySeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8000
+            initialDelaySeconds: 20
+      imagePullSecrets:
+        - name: ghcr-secret

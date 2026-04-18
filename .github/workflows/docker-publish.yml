@@ -89,3 +89,39 @@ jobs:
             SPRING_PROFILE=${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy to OKE
+    needs: docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    env:
+      ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure Kubectl
+        uses: oracle-actions/configure-kubectl-oke@v1.5.0
+        id: test-configure-kubectl-oke-action
+        with:
+          cluster: ${{ secrets.OKE_CLUSTER_OCID }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f deploy/${{ env.ENV }}/
+          
+          # Deployment name logic to handle differences between envs
+          if [ "${{ env.ENV }}" == "prod" ]; then
+            DEPLOYMENT_NAME="api-gw-deployment"
+          else
+            DEPLOYMENT_NAME="dev-api-gw-deployment"
+          fi
+          
+          kubectl rollout restart deployment/${DEPLOYMENT_NAME} -n pluto
