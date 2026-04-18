@@ -86,5 +86,6 @@ jobs:
           push: true
           build-args: |
             JAR_FILE=${{ steps.artifact.outputs.jar_file }}
+            SPRING_PROFILE=${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
