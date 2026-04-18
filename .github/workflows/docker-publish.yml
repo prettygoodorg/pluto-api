@@ -99,12 +99,10 @@ jobs:
           IMAGE: ghcr.io/${{ github.repository }}:${{ needs.docker.outputs.image_tag }}
         run: |
           set -euo pipefail
-          
+        
           MANIFEST=$(ls deploy/${{ env.ENV }}/ | grep -i deployment | head -n 1)
           [[ -z "$MANIFEST" ]] && { echo "Deployment manifest not found" >&2; exit 1; }
-          
+        
           kubectl apply -f deploy/${{ env.ENV }}/
           kubectl set image -f deploy/${{ env.ENV }}/$MANIFEST api=$IMAGE
-          
-          DEPLOY_NAME=$(kubectl get -f deploy/${{ env.ENV }}/$MANIFEST -o jsonpath='{.metadata.name}')
-          kubectl rollout status deployment/$DEPLOY_NAME --timeout=180s
+          kubectl rollout status -f deploy/${{ env.ENV }}/$MANIFEST -n pluto --timeout=180s
