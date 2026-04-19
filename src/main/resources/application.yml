@@ -20,11 +20,6 @@ mybatis:
     map-underscore-to-camel-case: true
     jdbc-type-for-null: 'NULL'
 
-app:
-  oauth2:
-    redirect-uri: http://localhost:3000/auth/callback
-    authorization-request-expiry-minutes: 5
-
 management:
   endpoint:
     health:

@@ -26,7 +26,7 @@ public class RedisAuthorizationRequestRepository implements AuthorizationRequest
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("#{T(java.time.Duration).ofMinutes(${app.oauth2.authorization-request-expiry-minutes})}")
+    @Value("#{T(java.time.Duration).ofMinutes(${spring.security.oauth2.authorization-request-expiry-minutes})}")
     private Duration ttl;
 
     @Override

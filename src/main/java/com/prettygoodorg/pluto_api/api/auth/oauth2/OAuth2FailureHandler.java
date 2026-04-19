@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Component
 public class OAuth2FailureHandler implements AuthenticationFailureHandler {
 
-    @Value("${app.oauth2.redirect-uri}")
+    @Value("${spring.security.oauth2.redirect-uri}")
     private String redirectUri;
 
     @Override

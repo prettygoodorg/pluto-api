@@ -28,7 +28,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final AuthService authService;
     private final OAuth2UserInfoMapper oAuth2UserInfoMapper;
 
-    @Value("${app.oauth2.redirect-uri}")
+    @Value("${spring.security.oauth2.redirect-uri}")
     private String redirectUri;
 
     @Override
