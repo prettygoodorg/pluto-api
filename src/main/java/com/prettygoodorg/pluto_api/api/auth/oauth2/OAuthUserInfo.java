@@ -1,4 +1,4 @@
-package com.prettygoodorg.pluto_api.api.auth.oauth;
+package com.prettygoodorg.pluto_api.api.auth.oauth2;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

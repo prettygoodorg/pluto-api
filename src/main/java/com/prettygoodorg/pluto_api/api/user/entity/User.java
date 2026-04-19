@@ -3,7 +3,7 @@ package com.prettygoodorg.pluto_api.api.user.entity;
 import com.fasterxml.uuid.Generators;
 import com.prettygoodorg.pluto_api.api.auth.enums.OAuthProvider;
 import com.prettygoodorg.pluto_api.api.auth.enums.Role;
-import com.prettygoodorg.pluto_api.api.auth.oauth.OAuthUserInfo;
+import com.prettygoodorg.pluto_api.api.auth.oauth2.OAuthUserInfo;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
