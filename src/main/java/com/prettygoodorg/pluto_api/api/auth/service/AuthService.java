@@ -2,7 +2,6 @@ package com.prettygoodorg.pluto_api.api.auth.service;
 
 import com.fasterxml.uuid.Generators;
 import com.prettygoodorg.pluto_api.api.auth.dto.request.LogoutRequest;
-import com.prettygoodorg.pluto_api.api.auth.dto.request.OAuthLoginRequest;
 import com.prettygoodorg.pluto_api.api.auth.dto.request.TermsAgreeRequest;
 import com.prettygoodorg.pluto_api.api.auth.dto.request.TokenRefreshRequest;
 import com.prettygoodorg.pluto_api.api.auth.dto.response.OAuthLoginResponse;
@@ -14,11 +13,9 @@ import com.prettygoodorg.pluto_api.common.jwt.JwtProperties;
 import com.prettygoodorg.pluto_api.common.exception.ErrorCodeImpl;
 import com.prettygoodorg.pluto_api.common.exception.BizException;
 import com.prettygoodorg.pluto_api.common.jwt.JwtProvider;
-import com.prettygoodorg.pluto_api.api.auth.oauth.OAuthClient;
-import com.prettygoodorg.pluto_api.api.auth.oauth.OAuthUserInfo;
+import com.prettygoodorg.pluto_api.api.auth.oauth2.OAuthUserInfo;
 import com.prettygoodorg.pluto_api.api.auth.entity.PendingUser;
 import com.prettygoodorg.pluto_api.api.auth.repository.RedisTokenRepository;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,19 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final List<OAuthClient> oAuthClients;
     private final UserRepository userRepository;
     private final RedisTokenRepository redisTokenRepository;
     private final JwtProvider jwtProvider;
@@ -51,24 +43,8 @@ public class AuthService {
     @Value("#{T(java.time.Duration).ofMinutes(${auth.pending-user-expiry-minutes})}")
     private Duration pendingTtl;
 
-    private Map<String, OAuthClient> oAuthClientMap;
-
-    @PostConstruct
-    private void init() {
-        this.oAuthClientMap = oAuthClients.stream()
-                .collect(Collectors.toUnmodifiableMap(
-                        c -> c.getProvider().toUpperCase(),
-                        Function.identity()
-                ));
-    }
-
-    public OAuthLoginResponse oauthLogin(OAuthLoginRequest request) {
-        String provider = request.getProvider().toUpperCase();
-        OAuthClient client = Optional.ofNullable(oAuthClientMap.get(provider))
-                .orElseThrow(() -> new BizException(ErrorCodeImpl.UNSUPPORTED_PROVIDER));
-
-        OAuthUserInfo userInfo = client.getUserInfo(request.getCode(), request.getRedirectUri());
-
+    public OAuthLoginResponse oauthLogin(OAuthUserInfo userInfo) {
+        String provider = userInfo.getProvider().toUpperCase();
         Optional<User> existingUser = userRepository.findByProviderAndProviderId(OAuthProvider.valueOf(provider), userInfo.getProviderId());
 
         if (existingUser.isPresent()) {
